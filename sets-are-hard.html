@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="style.css" />
+    <title>Sets Are Hard</title>
+  </head>
+  <body>
+    <h1>Sets Are Hard</h1>
+    <span style="font-weight:bold">Dakota Fisher</span> on March 31, 2017 <span style="color:red;font-weight:bold">(Warning: Scheme ahead)</span>
+    <p>
+      That must be false. After all:
+    </p>
+    <h2>Sets are easy, they're just lists</h2>
+    <p>
+      One might think to say that since sets are collections of objects that a list of objects might be good enough.
+      We have list-like structures that support the regular set operations with reasonable efficiency.
+      For some set implementations, this is the correct solution.
+      If we have only a finite number of elements in any particular set, this is the implementation we want.
+    </p>
+    <p>
+      We can define inhabitation, containment, union, intersection and difference easily enough in Scheme:<br />
+      <pre><code>(define (inhabited? s) (pair? s))
+(define (contains? s e) (member e s))
+(define (union x y)
+  (append x y))
+(define (intersection x y)
+  (filter (lambda (e) (contains y e)) x))
+(define (difference x y)
+  (filter (lambda (e) (not (contains y e))) x))</code></pre>
+      But we're restricted to finite sets, so we can't do negation.
+      <pre>(define (negation x)
+  (difference universe x))
+(define universe ???)</pre>
+    </p>
+    <p>
+      If we go with this, though, there are some reasonable sets we can't talk about:
+      <ul>
+	<li>The set of all natural numbers: 0,1,2,3,...</li>
+	<li>The set of all valid files in a programming language</li>
+	<li>The set of all sets that do not contain themselves (we'll talk about this later)</li>
+	<li>The set of all objects except the word "foo"</li>
+      </ul>
+    </p>
+    <h2>Sets are easy, they're just streams/infinite lists</h2>
+    <p>
+      Okay, let's assume that our Scheme gave us lazy pairs and consequently infinite lists.
+      Here's the set of all natural numbers:
+      <pre><code>(define (ints-from n) (cons n (ints-from (+ n 1))))
+(define nats (ints-from 0))</code></pre>
+      Inhabitation and containment remain the same.
+      There is a caveat, however, containment is not expected to terminate.
+
+      In fact, contains cannot return false whenever we have infinite sets.
+      Union won't give us that much trouble, append only fails because the first argument might be infinite, which means we'll never see elements in the second set.
+      To handle this, we have to start using interleaving, but that's not difficult:
+      <pre><code>(define (union x y)
+  (if (pair? x)
+    (cons (car x) (union y (cdr x)))
+    y))</code></pre>
+      Intersection's a bit trickier.
+      If we use our previous implementation, we'll stop the first time we see an element in the first list that's not part of the second.
+      To avoid this, we need to keep progressing through the lists.
+      Instead, we have to keep track of elements that we've already seen and make progress through both sets:
+      <pre><code>(define (intersect-helper x y x-seen y-seen)
+  (cond
+    ((null? x)
+     '())
+    ((member (car x) y-seen)
+     (cons (car x) (intersect-helper (cdr x) y x-seen y-seen))
+    (else
+     (intersect-helper y (cdr x) y-rem (cons (car x) x-rem))))))
+(define (intersect x y)
+  (intersect-helper x y '() '()))</code></pre>
+      There is a nasty edge case in intersect: if both sets are infinite but share no elements, intersect cannot determine whether it reduces to either a cons pair or the empty set.
+      So intersect won't terminate unless we're using some particularly lazy variant of Scheme.
+      If it did terminate, inhabitation definitely should not (either you find the end of an infinite set or a shared unshared element).
+      The implementation of difference, surprisingly, does not change, despite its similarity to intersect.
+      We can't improve on difference, we always need to look through the entirety of the subtracted set for it to work.
+      We can implement negation and universe, as long as our notion of universe is restricted to something enumerable.
+      So by giving ourselves the option to involve ourselves in infinite sets, we've lost quite a lot.
+    </p>
+    <h2>Sets are easy, they're really just questions</h2>
+    <p>
+      Okay, this solves most of our problems with the previous notion and most of our implementation is straightforward:
+      <pre><code>(define (contains s e) (s e))
+(define (union x y) (lambda (e) (or (x e) (y e))))
+(define (intersect x y) (lambda (e) (and (x e) (y e))))
+(define (negate s) (lambda (e) (not (s e))))
+(define (difference x y) (intersect x (negate y)))
+(define nats (lambda (x) (and (integer? x) (>= x 0)))</code></pre>
+      With some concurrency hacks, this could probably be made to terminate as long as we can get an explanation for an answer.
+      Inhabitation is impossible to write, however.
+      To say that it is true, one has to be able to find an element.
+      To say that it is false, one has to be able to show that every element is not within the set.
+      Either way, we're not in a good spot.
+    </p>
+    <h2>Sets are easy, they're really just questions/propositions to be proven</h2>
+    <p>
+      Alright, now we have have the same as above except our sets and logical operators (and, or, not) are now proposition constructors.
+      This is only half of an answer, however, we still need to do computation on sets.
+      Naturally, this is where we leave computer science and enter philosophy.
+    </p>
+    <h2>Sets are easy, they're really just questions, but what are questions?</h2>
+    <p>
+      Consider this set I brought up early on: the set of all sets that do not contain themselves.
+      Does it contain itself?
+      If so, then clearly it does not contain itself, since it violates its requirement.
+      If not, then clearly it does contain itself, since it satisfies its requirement.
+      Either way, we lead ourselves to a contradiction.
+    </p>
+    <p>
+      This is called "Russell's Paradox".
+      Why is this important?
+      Historically, this whole mess really all starts with Georg Cantor.
+      Specifically, Cantor created the modern notions of infinity and cardinality that are taken for granted today.
+      Cantor's Theorem effectively encodes a very similar set to show that the power set of any set is larger than the original set.
+      This creates a cardinality tower of transfinite numbers.
+      Bertrand Russell attempted to discover a flaw in Cantor's proof, found the paradox and learned that the system on which it was built was fundamentally broken.
+    </p>
+    <p>
+      This system was set theory and Russell's Paradox was a significant part of the foundational crisis of mathematics in the early 20ᵗʰ century.
+      Having demonstrated this inconsistency in set theory, it became clear that simply using such a system was philosophically a huge problem.
+      Gödel's Incompleteness Theorem took this even further, showing that arithmetic couldn't escape philosophical problems.
+    </p>
+    <p>
+      This culminated in a few further developments, including the Turing machine and the lambda calculus.
+      Between these developments came two very important notions: decidability and semidecidability.
+      A set is decidable iff it is possible to determine (via Turing machine), given any element, that the set does or does not contain that element.
+      A set is semidecidable iff it is possible to enumerate (via Turing machine) either all elements within the set or all elements not within the set.
+      Permit the definition of two variants of semidecidability.
+      A set is true-enumerable iff all the elements within the set can be enumerated.
+      A set is false-enumerable iff all the elements not within the set can be enumerated.
+      Now we're finally equipped to understand the problem.
+    </p>
+    <h2>Sets aren't easy, they're really just questions, but questions aren't easy, either</h2>
+    <p>
+      Where are we left now, knowing this?
+      We've got some very difficult problems, but they're not insoluble.
+    </p>
+    <p>
+      The most important thing is that we know what questions to ask:
+      <ol>
+        <li>What set operations do we want to compute?</li>
+        <li>To what extent are those set operations computable?</li>
+        <li>How do we implement these?</li>
+      </ol>
+      We know now that we really shouldn't expect to be able to do everything.
+      Some questions aren't answerable, nor should we want them to be.
+      Here are some operations on sets that are important:
+      <ul>
+        <li>Containment: Containment takes a set and element and can answer either true or false, sets are defined by containment.</li>
+        <li>Union: The union of two sets A and B is another set which contains an element X iff X is in A or X is in B.</li>
+        <li>Intersection: The union of two sets A and B is another set which contains an element X iff X is in A and X is in B.</li>
+        <li>Negation: The negation of a set A is another set which contains an element X iff X is not in A.</li>
+        <li>Choice: The choice of a set is a box containing an element within that set if that set has any elements and false otherwise. (The box lets us handle false as an element separately)</li>
+        <li>Removal: The removal of an element X from a set A is another set which contains an element Y iff X ≠ Y and X is in A.</li>
+      </ul>
+      Containment is the main question of a set.
+      Union, intersection and negation help us handle sets, but might be derived.
+      Choice lets us ask for element witnesses to containment.
+      Removal, when combined with choice, lets us get arbitrarily many witnesses, when they exist.
+    </p>
+    <p>
+      We don't have any constructors for sets yet.
+      Ideally, we would like to make "arbitrary" sets and still get reasonable answers.
+      Intuitively, it should be possible to implement union, intersection, negation and removal as derived operations.
+      Assuming this, there are only two operators to really help us answer what we should do: containment and choice.
+      Our encoding of sets should provide both simultaneously.
+      It might seem like these two operations are at odds: containment was only easily represented by predicates and choice was only easily represented by streams.
+      Here is a possibility: we could attempt to enumerate proofs of containment and thereby derive choice.
+      If we have a format for describing predicates which suggests enumeration, then perhaps we would have our solution.
+    </p>
+    <p>
+      Before we continue, lets try to answer question 2:
+      <ul>
+        <li>Containment should be decidable for decidable sets.</li>
+        <li>Union and intersection should produce decidable sets iff both arguments are decidable and semidecidable sets iff both arguments are semidecidable.</li>
+        <li>Difference should produce a decidable set if its argument is decidable, a true-enumerable argument should produce a false-enumerable set and a false-enumerable argument should produce a true-enumerable set.</li>
+        <li>Removal should produce decidable sets for sets which are decidable on all elements except the removed one and semidecidable sets for sets which are semidecidable on all elements except the removed one.</li>
+        <li>Choice should be decidable on true-enumerable sets, on the assumption that infinite elements are within the set.</li>
+      </ul>
+      This suggests a relation between containment and decidability and between choice and semidecidability.
+      If decidability refers to predicates and semidecidability to enumerations, then connecting the two into one seems like the right way to do things.
+    </p>
+    <h2>Sets are easy? They're just programs.</h2>
+    <p>
+      To connect the two, let's consider a technique called proof search.
+      Engaging in proof search means...searching for proofs.
+      If we have a graph of all the possible ways to prove something true, and we do a complete search of that graph, then we should be able to find any proof eventually, even if the graph is infinite.
+      As long as we have a sufficiently general way to specify the graphs, we should be able to perform a proof search.
+      If we already have a particular proof, we can skip ahead and check that our particular proof is in the graph.
+      Even if we only had a partial proof, we should still be able to avoid already-completed portions of the proof.
+      Actually, this is true if the partial part of the proof is simply a refined version of the question.
+      In our case, if we know which element we want, then we can check that a proof with that element exists.
+      If we only knew some information about the element we want to use for our proof, then we can look only for proofs which satisfy that information.
+      This nifty new "proof search" thing is actually a considerable generalization of what we want.
+      Neato!
+    </p>
+    <p>
+      Of course, proof search in computation isn't a new idea.
+      The more specific notion of proof search as computation is arguably the thesis of logic programming and of Prolog (which Wikipedia places at 1972).
+      If we're willing to use a sufficiently-flexible logic programming language upfront or to embed such a language in one we already have, then we should be able to implement sets with proof search.
+      Thankfully, we already have such a language available to us.
+      This language, called <a href="http://miniKanren.org">miniKanren</a>, lets us define propositions as well as relations which take arguments and produce propositions.
+      Our sets are single-parameter relations.
+      Using miniKanren, we can define our set operations somewhat like this:
+      <pre><code>(define (contains? s e)
+  (pair? (run 1 () (s e))))
+(define (choice s)
+  (let ((answer (run 1 (e) (s e))))
+    (and (pair? answer) answer)))
+(define (union x y)
+  (lambda (e) (conde ((x e)) ((y e)))))
+(define (intersect x y)
+  (lambda (e) (conde ((x e) (y e)))))
+(define (remove s r)
+  (lambda (e) (conde ((=/= e r) (s e)))))
+(define (negate s)
+  (lambda (e) (noto (s e))))</code></pre>
+      Using our own non-native representation of the natural numbers, we can write this to represent the set of natural numbers:
+      <pre><code>(define (nato x)
+  (conde
+    ((== x 'Z))
+    ((fresh (y)
+       (== x (cons 'S y))
+       (nato y)))))</code></pre>
+      Our main set constructor is lambda, which represents a miniKanren relation.
+      We haven't yet solved everything, however:
+      <ul>
+        <li>miniKanren doesn't actually have negation (noto) yet.</li>
+        <li>Implementing proper containment in miniKanren requires higher-order relation unification.</li>
+        <li>In general, the manipulation of relations and therefore of sets in miniKanren is limited (i.e. we don't make a "set of" relation ala Prolog).</li>
+      </ul>
+      To my knowledge, these are all open research problems.
+      The first problem means that negate is a fictitious operator currenctly.
+      The main consequence of the latter two is that while we can implement sets this way with miniKanren, we can't implement sets this way in miniKanren.
+    </p>
+    <h2>Sets are hard, but that might not be true forever</h2>
+    <p>
+      Sets are reasonably well-implemented as logic programming relations.
+      In terms of flexibility, it beats out implementing sets as lists, streams or functional-language predicates.
+      The proof search of logic programming provides a reflection on proof that allows us to express containment and choice simultaneously.
+      Unfortunately, we're not done quite yet, we still need more powerful logic programming language to make everything work.
+      I don't presume to know the answer yet, each one presents its own challenges, but knowing where to go is important to the process of actually getting there.
+    </p>
+    <p>
+      Now we know where to go.
+    </p>
+    <p style="text-align:center">
+      <a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png" /></a><br /><span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" property="dct:title" rel="dct:type">Sets Are Hard</span> by <a xmlns:cc="http://creativecommons.org/ns#" href="https://dakotafisher.com/sets-are-hard.html" property="cc:attributionName" rel="cc:attributionURL">Dakota Fisher</a> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.
+    </p>
+  </body>
+</html>

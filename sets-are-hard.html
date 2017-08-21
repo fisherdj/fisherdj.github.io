@@ -6,16 +6,17 @@
   </head>
   <body>
     <h1>Sets Are Hard</h1>
-    <span style="font-weight:bold">Dakota Fisher</span> on March 31, 2017 <span style="color:red;font-weight:bold">(Warning: Scheme ahead)</span>
+    <span style="font-weight:bold">Dakota Fisher</span> on August 19, 2017
     <p>
-      That must be false. After all:
+      That must be false.
+      After all:
     </p>
-    <h2>Sets are easy, they're just lists</h2>
+    <h2>Sets are easy: they're just lists</h2>
     <p>
-      One might think to say that since sets are collections of objects that a list of objects might be good enough.
+      One might think to say that since sets are collections of objects that a list of objects (or some equivalent) might be good enough.
       We have list-like structures that support the regular set operations with reasonable efficiency.
       For some set implementations, this is the correct solution.
-      If we have only a finite number of elements in any particular set, this is the implementation we want.
+      If we have only a finite number of elements in any particular set, this is usually the implementation we want.
     </p>
     <p>
       We can define inhabitation, containment, union, intersection and difference easily enough in Scheme:<br />
@@ -41,7 +42,7 @@
 	<li>The set of all objects except the word "foo"</li>
       </ul>
     </p>
-    <h2>Sets are easy, they're just streams/infinite lists</h2>
+    <h2>Sets are easy: they're just streams/infinite lists</h2>
     <p>
       Okay, let's assume that our Scheme gave us lazy pairs and consequently infinite lists.
       Here's the set of all natural numbers:
@@ -58,7 +59,7 @@
     (cons (car x) (union y (cdr x)))
     y))</code></pre>
       Intersection's a bit trickier.
-      If we use our previous implementation, we'll stop the first time we see an element in the first list that's not part of the second.
+      If we use our previous implementation, we'll fail to terminate the first time we see an element in the first list that's not part of the second.
       To avoid this, we need to keep progressing through the lists.
       Instead, we have to keep track of elements that we've already seen and make progress through both sets:
       <pre><code>(define (intersect-helper x y x-seen y-seen)
@@ -73,14 +74,16 @@
   (intersect-helper x y '() '()))</code></pre>
       There is a nasty edge case in intersect: if both sets are infinite but share no elements, intersect cannot determine whether it reduces to either a cons pair or the empty set.
       So intersect won't terminate unless we're using some particularly lazy variant of Scheme.
-      If it did terminate, inhabitation definitely should not (either you find the end of an infinite set or a shared unshared element).
+      If it did terminate, inhabitation definitely should not (either you find the final element of an infinite set or a shared unshared element, which is paradoxical).
       The implementation of difference, surprisingly, does not change, despite its similarity to intersect.
       We can't improve on difference, we always need to look through the entirety of the subtracted set for it to work.
       We can implement negation and universe, as long as our notion of universe is restricted to something enumerable.
-      So by giving ourselves the option to involve ourselves in infinite sets, we've lost quite a lot.
+      So by giving ourselves the option to deal in infinite sets, we've lost quite a lot.
     </p>
-    <h2>Sets are easy, they're really just questions</h2>
+    <h2>Sets are easy: they're really just questions</h2>
     <p>
+      We can have sets themselves refer to the question of containment.
+      Here, a set becomes a function taking one argument (an element) and returning either #t (the set contains the element) or #f (the set does not contain the element).
       Okay, this solves most of our problems with the previous notion and most of our implementation is straightforward:
       <pre><code>(define (contains s e) (s e))
 (define (union x y) (lambda (e) (or (x e) (y e))))
@@ -88,19 +91,19 @@
 (define (negate s) (lambda (e) (not (s e))))
 (define (difference x y) (intersect x (negate y)))
 (define nats (lambda (x) (and (integer? x) (>= x 0)))</code></pre>
-      With some concurrency hacks, this could probably be made to terminate as long as we can get an explanation for an answer.
+      With a multithreading construct, this could probably be made to terminate as long as we can accept an answer for "terminated before completion".
       Inhabitation is impossible to write, however.
-      To say that it is true, one has to be able to find an element.
+      To say that it is true, one has to be able to find an element with no guide on how to do so.
       To say that it is false, one has to be able to show that every element is not within the set.
       Either way, we're not in a good spot.
     </p>
-    <h2>Sets are easy, they're really just questions/propositions to be proven</h2>
+    <h2>Sets are easy: they're really just questions/propositions to be proven</h2>
     <p>
       Alright, now we have have the same as above except our sets and logical operators (and, or, not) are now proposition constructors.
       This is only half of an answer, however, we still need to do computation on sets.
       Naturally, this is where we leave computer science and enter philosophy.
     </p>
-    <h2>Sets are easy, they're really just questions, but what are questions?</h2>
+    <h2>Sets are easy: they're really just questions, but what are questions?</h2>
     <p>
       Consider this set I brought up early on: the set of all sets that do not contain themselves.
       Does it contain itself?
@@ -112,7 +115,7 @@
       This is called "Russell's Paradox".
       Why is this important?
       Historically, this whole mess really all starts with Georg Cantor.
-      Specifically, Cantor created the modern notions of infinity and cardinality that are taken for granted today.
+      Specifically, Cantor created the modern notions of infinity and cardinality that many mathematicians take for granted today.
       Cantor's Theorem effectively encodes a very similar set to show that the power set of any set is larger than the original set.
       This creates a cardinality tower of transfinite numbers.
       Bertrand Russell attempted to discover a flaw in Cantor's proof, found the paradox and learned that the system on which it was built was fundamentally broken.
@@ -120,19 +123,17 @@
     <p>
       This system was set theory and Russell's Paradox was a significant part of the foundational crisis of mathematics in the early 20ᵗʰ century.
       Having demonstrated this inconsistency in set theory, it became clear that simply using such a system was philosophically a huge problem.
-      Gödel's Incompleteness Theorem took this even further, showing that arithmetic couldn't escape philosophical problems.
+      Gödel's Incompleteness Theorem took this even further, showing that arithmetic (or rather, a particular variant of it) couldn't escape foundational difficulties.
     </p>
     <p>
       This culminated in a few further developments, including the Turing machine and the lambda calculus.
       Between these developments came two very important notions: decidability and semidecidability.
       A set is decidable iff it is possible to determine (via Turing machine), given any element, that the set does or does not contain that element.
-      A set is semidecidable iff it is possible to enumerate (via Turing machine) either all elements within the set or all elements not within the set.
-      Permit the definition of two variants of semidecidability.
-      A set is true-enumerable iff all the elements within the set can be enumerated.
-      A set is false-enumerable iff all the elements not within the set can be enumerated.
-      Now we're finally equipped to understand the problem.
+      A set is semidecidable iff it is possible to enumerate (via Turing machine) all elements within the set.
+      Also useful is co-semidecidability, which is really just the "negation" of semidecidability.
+      A set is co-semidecidable iff it is possible to enumerate (via Turing machine) all elements not within the set.
     </p>
-    <h2>Sets aren't easy, they're really just questions, but questions aren't easy, either</h2>
+    <h2>Sets aren't easy: they're really just questions, but questions aren't easy, either</h2>
     <p>
       Where are we left now, knowing this?
       We've got some very difficult problems, but they're not insoluble.
@@ -159,9 +160,10 @@
       Union, intersection and negation help us handle sets, but might be derived.
       Choice lets us ask for element witnesses to containment.
       Removal, when combined with choice, lets us get arbitrarily many witnesses, when they exist.
+      (Technically, removal can be implemented in terms of the other operations, but really serves to go alongside choice).
     </p>
     <p>
-      We don't have any constructors for sets yet.
+      We don't have any constructors that let us make sets yet.
       Ideally, we would like to make "arbitrary" sets and still get reasonable answers.
       Intuitively, it should be possible to implement union, intersection, negation and removal as derived operations.
       Assuming this, there are only two operators to really help us answer what we should do: containment and choice.
@@ -175,9 +177,9 @@
       <ul>
         <li>Containment should be decidable for decidable sets.</li>
         <li>Union and intersection should produce decidable sets iff both arguments are decidable and semidecidable sets iff both arguments are semidecidable.</li>
-        <li>Difference should produce a decidable set if its argument is decidable, a true-enumerable argument should produce a false-enumerable set and a false-enumerable argument should produce a true-enumerable set.</li>
+	<li>Negation should produce decidable sets iff its argument is decidable, cosemidecidable sets should produce semidecidable sets and vice-versa</li>
         <li>Removal should produce decidable sets for sets which are decidable on all elements except the removed one and semidecidable sets for sets which are semidecidable on all elements except the removed one.</li>
-        <li>Choice should be decidable on true-enumerable sets, on the assumption that infinite elements are within the set.</li>
+        <li>Choice should be decidable on semidecidable sets.</li>
       </ul>
       This suggests a relation between containment and decidability and between choice and semidecidability.
       If decidability refers to predicates and semidecidability to enumerations, then connecting the two into one seems like the right way to do things.
@@ -228,8 +230,8 @@
       We haven't yet solved everything, however:
       <ul>
         <li>miniKanren doesn't actually have negation (noto) yet.</li>
-        <li>Implementing proper containment in miniKanren requires higher-order relation unification.</li>
-        <li>In general, the manipulation of relations and therefore of sets in miniKanren is limited (i.e. we don't make a "set of" relation ala Prolog).</li>
+        <li>Implementing the true containment relation in miniKanren requires higher-order relation unification.</li>
+        <li>In general, the manipulation of relations and therefore of sets in miniKanren as it is is limited (i.e. we don't have a "set of" relation ala Prolog).</li>
       </ul>
       To my knowledge, these are all open research problems.
       The first problem means that negate is a fictitious operator currenctly.
@@ -240,11 +242,10 @@
       Sets are reasonably well-implemented as logic programming relations.
       In terms of flexibility, it beats out implementing sets as lists, streams or functional-language predicates.
       The proof search of logic programming provides a reflection on proof that allows us to express containment and choice simultaneously.
-      Unfortunately, we're not done quite yet, we still need more powerful logic programming language to make everything work.
-      I don't presume to know the answer yet, each one presents its own challenges, but knowing where to go is important to the process of actually getting there.
+      Unfortunately, we're not done quite yet, we still need a more powerful logic programming language to make everything work.
     </p>
     <p>
-      Now we know where to go.
+      The good news is we now have a clear endgoal.
     </p>
     <p style="text-align:center">
       <a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png" /></a><br /><span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" property="dct:title" rel="dct:type">Sets Are Hard</span> by <a xmlns:cc="http://creativecommons.org/ns#" href="https://dakotafisher.com/sets-are-hard.html" property="cc:attributionName" rel="cc:attributionURL">Dakota Fisher</a> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.
